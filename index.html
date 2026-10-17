@@ -1,0 +1,38 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><meta name="apple-mobile-web-app-title" content="Copilot">
+<meta name="theme-color" content="#14161c"><link rel="apple-touch-icon" href="icon-180.png"><link rel="manifest" href="manifest.webmanifest">
+<title>Call Copilot</title><link rel="stylesheet" href="style.css"></head><body><main>
+<section id="live" class="on">
+ <h2>Call Copilot</h2>
+ <div class="note">📱 iPhone can't record phone or FaceTime/Zoom audio directly. Put the call on <b>speakerphone</b> (or on another device) so this app hears it through the mic. Keep this app open with the screen on.</div>
+ <div class="row" style="margin-top:10px"><button id="start" class="primary">● Start listening</button><button id="stop" disabled>■ Stop</button><button id="me" title="Tap while you are the one talking">🙋 I'm talking</button></div>
+ <p id="status" class="mut">Not listening.</p>
+ <div class="card"><div id="q"></div><div id="ans" class="mut">Answers to questions you hear appear here.</div>
+  <div class="row" style="margin-top:8px"><button data-r="shorter">Shorter</button><button data-r="deeper">Deeper</button><button data-r="example">Example</button><button data-r="simpler">Simpler</button></div>
+  <div class="row" style="margin-top:8px"><button id="latest">Answer last question</button><button id="copy">Copy</button></div></div>
+ <form id="askf" class="row"><input id="ask" placeholder="Ask anything…" style="flex:1"><button class="primary">Ask</button></form>
+ <div class="card" id="tx"></div>
+ <div class="row"><button id="wrap">Wrap up</button></div><div id="wrapOut"></div>
+</section>
+<section id="profile"><h2>Profile</h2><p class="mut">Used to write answers in your voice and to spell names/jargon correctly.</p>
+ <label>Resume</label><textarea id="resume" rows="10" placeholder="Paste your resume…"></textarea>
+ <div class="row" style="margin-top:6px"><input type="file" id="file" accept=".txt,.md,text/plain"></div>
+ <label>Notes (company, role, stories)</label><textarea id="notes" rows="6"></textarea>
+ <label>Special words (comma separated)</label><input id="keywords">
+ <p><button id="saveProfile" class="primary">Save profile</button> <span id="pmsg" class="mut"></span></p></section>
+<section id="history"><h2>History</h2><div id="list"></div><div id="view"></div></section>
+<section id="settings"><h2>Settings</h2>
+ <label>OpenAI API key</label><input id="apiKey" type="password" placeholder="sk-..." autocomplete="off">
+ <p id="kmsg" class="mut">Stored only on this iPhone (in this app's local storage). Sent only to api.openai.com.</p>
+ <div class="row"><button id="saveKey" class="primary">Save key</button><button id="testKey">Test</button><button id="clearKey">Remove</button></div>
+ <label>Answer model</label><select id="answerModel"><option>gpt-4.1-mini</option><option>gpt-4.1</option><option>gpt-4o</option><option>gpt-4o-mini</option></select>
+ <label>Transcription model</label><select id="transcribeModel"><option>gpt-4o-mini-transcribe</option><option>gpt-4o-transcribe</option><option>whisper-1</option></select>
+ <label>Language (2 letters, blank = auto)</label><input id="language">
+ <label>Chunk seconds</label><input id="chunkSeconds" type="number" min="3" max="20">
+ <label><input type="checkbox" id="autoAnswer" style="width:auto"> Auto-answer detected questions</label>
+ <p><button id="saveSettings" class="primary">Save settings</button> <span id="smsg" class="mut"></span></p></section>
+</main>
+<nav><button data-tab="live" class="sel">🎧 Live</button><button data-tab="profile">👤 Profile</button><button data-tab="history">🗂 History</button><button data-tab="settings">⚙️ Settings</button></nav>
+<script src="shared.js"></script><script src="app.js"></script></body></html>
