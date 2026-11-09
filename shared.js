@@ -261,7 +261,7 @@ function createCopilot({ store, getKey, openai, emit = () => {}, now = () => Dat
     stop() { const s = sess; persist(); emit('session-stopped', s && s.id); return s; },
     addLine,
     onAudio(speaker, buf, mime) {
-      if (!buf || buf.length < 2000) return Promise.resolve();
+      if (!buf || buf.length < 500) return Promise.resolve();
       const sp = speaker === 'You' ? 'You' : 'Them';
       queue[sp] = queue[sp].then(async () => {
         let apiKey; try { apiKey = key(); } catch { return; }

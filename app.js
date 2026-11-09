@@ -26,22 +26,22 @@ const cp = createCopilot({ store, getKey, openai, emit: (e, d) => handlers[e] &&
 
 // --- Mic capture in self-contained chunks (iOS Safari records audio/mp4) ---
 const MIME = ['audio/webm;codecs=opus', 'audio/mp4', 'audio/aac', 'audio/webm'].find(m => window.MediaRecorder && MediaRecorder.isTypeSupported(m)) || '';
-let running = false, stream, rec, ctx, meterT, wake, meTalking = false;
+let chunks = 0, running = false, stream, rec, ctx, meterT, wake, meTalking = false;
 async function start() {
   if (!getKey()) { handlers.error('Add your OpenAI API key in Settings first.'); return tab('settings'); }
   try { stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: true } }); }
   catch (e) { return handlers.error('Microphone blocked: ' + e.message + '. Settings app › Safari › Microphone › Allow.'); }
-  ctx = new (window.AudioContext || window.webkitAudioContext)(); const an = ctx.createAnalyser(); an.fftSize = 1024; ctx.createMediaStreamSource(stream).connect(an);
+  ctx = new (window.AudioContext || window.webkitAudioContext)(); try { await ctx.resume(); } catch {} const an = ctx.createAnalyser(); an.fftSize = 1024; ctx.createMediaStreamSource(stream).connect(an);
   const buf = new Float32Array(an.fftSize); let peak = 0;
   meterT = setInterval(() => { an.getFloatTimeDomainData(buf); let s = 0; for (const v of buf) s += v * v; peak = Math.max(peak, Math.sqrt(s / buf.length)); }, 100);
   try { wake = await navigator.wakeLock?.request('screen'); } catch {}
-  running = true; $('tx').innerHTML = ''; $('wrapOut').innerHTML = ''; cp.start();
+  running = true; chunks = 0; $('tx').innerHTML = ''; $('wrapOut').innerHTML = ''; cp.start();
   const secs = +store.getSettings().chunkSeconds || 6;
   const next = () => {
     if (!running) return; peak = 0; const parts = []; let speakerYou = meTalking;
     rec = new MediaRecorder(stream, MIME ? { mimeType: MIME } : undefined);
     rec.ondataavailable = e => e.data.size && parts.push(e.data);
-    rec.onstop = () => { const p = peak, you = speakerYou || meTalking; next(); if (p > 0.01 && parts.length) { const type = rec && parts[0].type || MIME || 'audio/mp4'; new Blob(parts, { type }).arrayBuffer().then(ab => cp.onAudio(you ? 'You' : 'Them', new Uint8Array(ab), type)); } };
+    rec.onstop = () => { const p = peak, you = speakerYou || meTalking, meterOk = ctx && ctx.state === 'running'; next(); chunks++; $('status').textContent = 'Listening… heard ' + chunks + ' clip(s), level ' + (meterOk ? Math.round(p * 1000) : '?') + (meterOk && p <= 0.002 ? ' (too quiet, turn the call volume up)' : ''); if ((!meterOk || p > 0.002) && parts.length) { const type = rec && parts[0].type || MIME || 'audio/mp4'; new Blob(parts, { type }).arrayBuffer().then(ab => cp.onAudio(you ? 'You' : 'Them', new Uint8Array(ab), type)); } };
     rec.start(); setTimeout(() => rec.state !== 'inactive' && rec.stop(), secs * 1000);
   };
   next();
