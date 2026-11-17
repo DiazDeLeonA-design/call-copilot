@@ -16,9 +16,11 @@ const store = {
 };
 const getKey = () => localStorage.getItem('cc.apiKey') || '';
 let full = '';
+let lastLabel = '';
 const handlers = {
   transcript: e => { const d = document.createElement('div'); d.className = 'line'; d.innerHTML = `<b class="${e.speaker}">${e.speaker}:</b> ${esc(e.text)}`; $('tx').appendChild(d); $('tx').scrollTop = 1e9; },
-  'answer-start': d => { full = ''; $('q').textContent = (d.refine ? '↻ ' : 'Q: ') + d.label; $('ans').textContent = '…'; $('ans').classList.remove('mut'); },
+  'listening-question': () => { $('q').textContent = 'Hearing a question… waiting for them to finish'; },
+  'answer-start': d => { if (full && !d.refine) { const o = document.createElement('div'); o.className = 'mut'; o.style.cssText = 'margin-top:10px;border-top:1px solid #8884;padding-top:8px;font-size:.9em'; o.innerHTML = '<b>Earlier: ' + esc(lastLabel) + '</b><br>' + esc(full).replace(/\n/g, '<br>'); $('prev').prepend(o); } full = ''; if (!d.refine) lastLabel = d.label; $('q').textContent = (d.refine ? '↻ ' : 'Q: ') + d.label; $('ans').textContent = '…'; $('ans').classList.remove('mut'); },
   'answer-delta': d => { full += d; $('ans').textContent = full; },
   error: m => { $('status').innerHTML = '<span class="err">' + esc(m) + '</span>'; }
 };
@@ -35,13 +37,13 @@ async function start() {
   const buf = new Float32Array(an.fftSize); let peak = 0;
   meterT = setInterval(() => { an.getFloatTimeDomainData(buf); let s = 0; for (const v of buf) s += v * v; peak = Math.max(peak, Math.sqrt(s / buf.length)); }, 100);
   try { wake = await navigator.wakeLock?.request('screen'); } catch {}
-  running = true; chunks = 0; $('tx').innerHTML = ''; $('wrapOut').innerHTML = ''; cp.start();
+  running = true; chunks = 0; $('tx').innerHTML = ''; $('wrapOut').innerHTML = ''; $('prev').innerHTML = ''; full = ''; cp.start();
   const secs = +store.getSettings().chunkSeconds || 6;
   const next = () => {
     if (!running) return; peak = 0; const parts = []; let speakerYou = meTalking;
     rec = new MediaRecorder(stream, MIME ? { mimeType: MIME } : undefined);
     rec.ondataavailable = e => e.data.size && parts.push(e.data);
-    rec.onstop = () => { const p = peak, you = speakerYou || meTalking, meterOk = ctx && ctx.state === 'running'; next(); chunks++; $('status').textContent = 'Listening… heard ' + chunks + ' clip(s), level ' + (meterOk ? Math.round(p * 1000) : '?') + (meterOk && p <= 0.002 ? ' (too quiet, turn the call volume up)' : ''); if ((!meterOk || p > 0.002) && parts.length) { const type = rec && parts[0].type || MIME || 'audio/mp4'; new Blob(parts, { type }).arrayBuffer().then(ab => cp.onAudio(you ? 'You' : 'Them', new Uint8Array(ab), type)); } };
+    rec.onstop = () => { const p = peak, you = speakerYou || meTalking, meterOk = ctx && ctx.state === 'running'; next(); chunks++; $('status').textContent = 'Listening… heard ' + chunks + ' clip(s), level ' + (meterOk ? Math.round(p * 1000) : '?') + (meterOk && p <= 0.002 ? ' (too quiet, turn the call volume up)' : ''); if (meterOk && p <= 0.002) cp.onSilence(you ? 'You' : 'Them'); if ((!meterOk || p > 0.002) && parts.length) { const type = rec && parts[0].type || MIME || 'audio/mp4'; new Blob(parts, { type }).arrayBuffer().then(ab => cp.onAudio(you ? 'You' : 'Them', new Uint8Array(ab), type)); } };
     rec.start(); setTimeout(() => rec.state !== 'inactive' && rec.stop(), secs * 1000);
   };
   next();

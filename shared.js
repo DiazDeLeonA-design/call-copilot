@@ -103,7 +103,7 @@ function refineMessages({ profile, transcript, history, kind }) {
   return answerMessages({ profile, transcript, history, question: instr });
 }
 
-function questionPrompt(q) { return `The other person just asked: "${q}"\nGive me what to say.`; }
+function questionPrompt(q) { return `The other person just said: "${q}"\nThis may contain more than one question, or one question split across several sentences. Answer every part, in the order asked, as one combined reply. If there are several separate questions, label each part briefly. Give me what to say.`; }
 
 // Transcription prompt: jargon/names from profile to help spelling. Keep short.
 function transcriptionPrompt(profile = {}, maxChars = 800) {
@@ -228,9 +228,28 @@ function createCopilot({ store, getKey, openai, emit = () => {}, now = () => Dat
     const entry = { speaker, text, at: new Date(now()).toISOString() };
     sess.transcript.push(entry); persist();
     emit('transcript', entry);
-    const q = detect(entry);
-    if (q) { lastQuestion = q; emit('question', q); if (store.getSettings().autoAnswer) runAnswer(P.questionPrompt(q), q); }
+    if (speaker === 'Them') {
+      const q = detect(entry);
+      if (pending) { pending.parts.push(text); arm(); }
+      else if (q) { pending = { parts: [text], since: now() }; arm(); emit('listening-question'); }
+    } else if (pending) flush();
     return entry;
+  }
+
+  // Wait until the other person finishes talking, so multi-part questions get one complete answer.
+  let pending = null, timer = null;
+  function arm() {
+    clearTimeout(timer);
+    if (pending && now() - pending.since > 30000) return flush();
+    const wait = (+store.getSettings().chunkSeconds || 6) * 1000 + 3000;
+    timer = setTimeout(flush, wait);
+  }
+  function flush() {
+    clearTimeout(timer); timer = null;
+    if (!pending) return;
+    const q = pending.parts.join(' ').trim(); pending = null;
+    lastQuestion = q; emit('question', q);
+    if (store.getSettings().autoAnswer) runAnswer(P.questionPrompt(q), q);
   }
 
   async function runAnswer(userMsg, label, refineKind) {
@@ -258,8 +277,9 @@ function createCopilot({ store, getKey, openai, emit = () => {}, now = () => Dat
   return {
     current: () => sess,
     start(title) { sess = store.newSession(title); history = []; lastQuestion = null; emit('session', sess); return sess; },
-    stop() { const s = sess; persist(); emit('session-stopped', s && s.id); return s; },
+    stop() { flush(); const s = sess; persist(); emit('session-stopped', s && s.id); return s; },
     addLine,
+    onSilence(speaker) { if (speaker !== 'You' && pending) flush(); },
     onAudio(speaker, buf, mime) {
       if (!buf || buf.length < 500) return Promise.resolve();
       const sp = speaker === 'You' ? 'You' : 'Them';
